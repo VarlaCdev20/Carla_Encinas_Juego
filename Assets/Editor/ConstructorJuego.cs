@@ -136,6 +136,13 @@ public static class ConstructorJuego
         fondo.transform.localScale = new Vector3(escala, escala, 1);
         fondo.AddComponent<FondoCamara>();
 
+        // Música de fondo en loop
+        var musica = new GameObject("Musica").AddComponent<AudioSource>();
+        musica.clip = Audio("Musica/Goblins_Dance_(Battle).wav");
+        musica.loop = true;
+        musica.playOnAwake = true;
+        musica.volume = 0.3f;
+
         // Grid con Cell Size 0.16 y Tilemap "Piso"
         var grid = new GameObject("Grid").AddComponent<Grid>();
         grid.cellSize = new Vector3(Celda, Celda, 0);
@@ -256,10 +263,17 @@ public static class ConstructorJuego
         comprobador.transform.SetParent(go.transform, false);
         comprobador.transform.localPosition = new Vector3(b.center.x, b.min.y, 0);
 
+        // Audio Source para los efectos de sonido
+        go.AddComponent<AudioSource>().playOnAwake = false;
+
         var j = go.AddComponent<Jugador>();
         j.velocidad = 2f;
         j.comprobadorPiso = comprobador.transform;
         j.layerPiso = LayerMask.GetMask("Pisito");
+        j.audioSource = go.GetComponent<AudioSource>();
+        j.audioAbeja = Audio("Efectos/04_sack_open_2.wav");
+        j.audioCaracol = Audio("Efectos/13_human_jump_land_1.wav");
+        j.audioPuerquito = Audio("Efectos/14_human_death_spin.wav");
 
         return GuardarPrefab(go, "Assets/Prefab/Jugador.prefab");
     }
@@ -473,6 +487,8 @@ public static class ConstructorJuego
         Guardar(clip, $"{dir}/{nombre}.anim");
         return AssetDatabase.LoadAssetAtPath<AnimationClip>($"{dir}/{nombre}.anim");
     }
+
+    static AudioClip Audio(string ruta) => AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/" + ruta);
 
     static Sprite PrimerSprite(AnimationClip clip) =>
         (Sprite)AnimationUtility.GetObjectReferenceCurve(clip, AnimationUtility.GetObjectReferenceCurveBindings(clip)[0])[0].value;
