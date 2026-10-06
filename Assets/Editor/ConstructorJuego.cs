@@ -158,6 +158,9 @@ public static class ConstructorJuego
         pj.transform.position = new Vector3(InicioX * Celda, SueloY + 0.1f, 0);
         cam.transform.position = new Vector3(pj.transform.position.x, pj.transform.position.y, -10);
 
+        // Script Camara en la Main Camera con el personaje como Target
+        cam.gameObject.AddComponent<Camara>().target = pj.transform;
+
         EditorSceneManager.MarkSceneDirty(escena);
         EditorSceneManager.SaveScene(escena);
     }
@@ -173,31 +176,8 @@ public static class ConstructorJuego
         var animJumpEnd = ExportarClip(Pack + "/Character/Jump-End/Jump-End.aseprite", dir, "Jump-End", false);
 
         // PjController: parámetros Velocidad, VelocidadVertical y estaEnPiso
-        var ctrl = AnimatorController.CreateAnimatorControllerAtPath(dir + "/PjController.controller");
-        ctrl.AddParameter("Velocidad", AnimatorControllerParameterType.Float);
-        ctrl.AddParameter("VelocidadVertical", AnimatorControllerParameterType.Float);
-        ctrl.AddParameter("estaEnPiso", AnimatorControllerParameterType.Bool);
-        var sm = ctrl.layers[0].stateMachine;
-        var sIdle = sm.AddState("Idle", new Vector3(300, 0));
-        var sRun = sm.AddState("Run", new Vector3(300, 120));
-        var sJump = sm.AddState("Jump", new Vector3(600, 0));
-        var sJumpEnd = sm.AddState("Jump-End", new Vector3(600, 120));
-        sIdle.motion = animIdle; sRun.motion = animRun; sJump.motion = animJump; sJumpEnd.motion = animJumpEnd;
-        sm.defaultState = sIdle;
-
-        // Sin Has Exit Time y con Transition Duration 0
-        Transicion(sIdle, sRun, ("Velocidad", AnimatorConditionMode.Greater, 0.1f));
-        Transicion(sRun, sIdle, ("Velocidad", AnimatorConditionMode.Less, 0.1f));
-        var anyJump = sm.AddAnyStateTransition(sJump);
-        anyJump.hasExitTime = false; anyJump.duration = 0; anyJump.canTransitionToSelf = false;
-        anyJump.AddCondition(AnimatorConditionMode.Greater, 0.1f, "VelocidadVertical");
-        anyJump.AddCondition(AnimatorConditionMode.IfNot, 0, "estaEnPiso");
-        Transicion(sJump, sJumpEnd, ("VelocidadVertical", AnimatorConditionMode.Less, 0.1f));
-        Transicion(sJumpEnd, sRun, ("Velocidad", AnimatorConditionMode.Greater, 0.1f), ("estaEnPiso", AnimatorConditionMode.If, 0));
-        Transicion(sJumpEnd, sIdle, ("Velocidad", AnimatorConditionMode.Less, 0.1f), ("estaEnPiso", AnimatorConditionMode.If, 0));
-        // Caer de un borde sin saltar también usa la animación de caída
-        Transicion(sIdle, sJumpEnd, ("VelocidadVertical", AnimatorConditionMode.Less, -0.5f), ("estaEnPiso", AnimatorConditionMode.IfNot, 0));
-        Transicion(sRun, sJumpEnd, ("VelocidadVertical", AnimatorConditionMode.Less, -0.5f), ("estaEnPiso", AnimatorConditionMode.IfNot, 0));
+        var ctrl = AssetDatabase.LoadAssetAtPath<AnimatorController>(dir + "/PjController.controller")
+                   ?? CrearPjController(dir, animIdle, animRun, animJump, animJumpEnd);
 
         // Sprite Idle, por encima del fondo con Order in Layer 2
         var idle = PrimerSprite(animIdle);
@@ -231,6 +211,36 @@ public static class ConstructorJuego
         j.layerPiso = LayerMask.GetMask("Pisito");
 
         return GuardarPrefab(go, "Assets/Prefab/Jugador.prefab");
+    }
+
+    static AnimatorController CrearPjController(string dir, AnimationClip animIdle, AnimationClip animRun, AnimationClip animJump, AnimationClip animJumpEnd)
+    {
+        var ctrl = AnimatorController.CreateAnimatorControllerAtPath(dir + "/PjController.controller");
+        ctrl.AddParameter("Velocidad", AnimatorControllerParameterType.Float);
+        ctrl.AddParameter("VelocidadVertical", AnimatorControllerParameterType.Float);
+        ctrl.AddParameter("estaEnPiso", AnimatorControllerParameterType.Bool);
+        var sm = ctrl.layers[0].stateMachine;
+        var sIdle = sm.AddState("Idle", new Vector3(300, 0));
+        var sRun = sm.AddState("Run", new Vector3(300, 120));
+        var sJump = sm.AddState("Jump", new Vector3(600, 0));
+        var sJumpEnd = sm.AddState("Jump-End", new Vector3(600, 120));
+        sIdle.motion = animIdle; sRun.motion = animRun; sJump.motion = animJump; sJumpEnd.motion = animJumpEnd;
+        sm.defaultState = sIdle;
+
+        // Sin Has Exit Time y con Transition Duration 0
+        Transicion(sIdle, sRun, ("Velocidad", AnimatorConditionMode.Greater, 0.1f));
+        Transicion(sRun, sIdle, ("Velocidad", AnimatorConditionMode.Less, 0.1f));
+        var anyJump = sm.AddAnyStateTransition(sJump);
+        anyJump.hasExitTime = false; anyJump.duration = 0; anyJump.canTransitionToSelf = false;
+        anyJump.AddCondition(AnimatorConditionMode.Greater, 0.1f, "VelocidadVertical");
+        anyJump.AddCondition(AnimatorConditionMode.IfNot, 0, "estaEnPiso");
+        Transicion(sJump, sJumpEnd, ("VelocidadVertical", AnimatorConditionMode.Less, 0.1f));
+        Transicion(sJumpEnd, sRun, ("Velocidad", AnimatorConditionMode.Greater, 0.1f), ("estaEnPiso", AnimatorConditionMode.If, 0));
+        Transicion(sJumpEnd, sIdle, ("Velocidad", AnimatorConditionMode.Less, 0.1f), ("estaEnPiso", AnimatorConditionMode.If, 0));
+        // Caer de un borde sin saltar también usa la animación de caída
+        Transicion(sIdle, sJumpEnd, ("VelocidadVertical", AnimatorConditionMode.Less, -0.5f), ("estaEnPiso", AnimatorConditionMode.IfNot, 0));
+        Transicion(sRun, sJumpEnd, ("VelocidadVertical", AnimatorConditionMode.Less, -0.5f), ("estaEnPiso", AnimatorConditionMode.IfNot, 0));
+        return ctrl;
     }
 
     // Tramos de piso (x inicial, x final, fila superior, profundidad) en casillas de 16 px
@@ -279,6 +289,8 @@ public static class ConstructorJuego
     static AnimationClip ExportarClip(string rutaAse, string dir, string nombre, bool loop)
     {
         Carpeta(dir);
+        var ya = AssetDatabase.LoadAssetAtPath<AnimationClip>($"{dir}/{nombre}.anim");
+        if (ya != null) return ya;
         var original = AssetDatabase.LoadAllAssetsAtPath(rutaAse).OfType<AnimationClip>().First();
         var clip = new AnimationClip { frameRate = original.frameRate, name = nombre };
         foreach (var b in AnimationUtility.GetObjectReferenceCurveBindings(original))
