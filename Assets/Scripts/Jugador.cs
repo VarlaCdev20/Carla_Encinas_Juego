@@ -1,4 +1,5 @@
 using UnityEngine;
+using TMPro;
 
 public class Jugador : MonoBehaviour
 {
@@ -11,6 +12,8 @@ public class Jugador : MonoBehaviour
     public float radioComprobadorPiso = 0.1f;
     public LayerMask layerPiso;
     private Animator animator;
+    private int cantAbejas = 0;
+    public TMP_Text textoAbejas;
 
     void Start()
     {
@@ -33,5 +36,15 @@ public class Jugador : MonoBehaviour
     public void FixedUpdate()
     {
         esPiso = Physics2D.OverlapCircle(comprobadorPiso.position, radioComprobadorPiso, layerPiso);
+    }
+
+    private void OnTriggerEnter2D(Collider2D collision)
+    {
+        if (collision.transform.CompareTag("abejita"))
+        {
+            Destroy(collision.gameObject);
+            cantAbejas++;
+            textoAbejas.text = "" + cantAbejas;
+        }
     }
 }

@@ -1,12 +1,15 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using TMPro;
 using UnityEditor;
 using UnityEditor.Animations;
 using UnityEditor.SceneManagement;
 using UnityEditor.U2D.Sprites;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.Tilemaps;
+using UnityEngine.UI;
 
 // Automatiza los pasos de la guía "Creando un videojuego 2D con Unity".
 // Paso 1: Unity -batchmode -executeMethod ConstructorJuego.Preparar
@@ -87,6 +90,7 @@ public static class ConstructorJuego
         Carpeta("Assets/Prefab");
         Carpeta("Assets/Animaciones");
         CrearLayer("Pisito");
+        CrearTag("abejita");
 
         // Physics Material 2D "solido" con fricción 0
         var solido = new PhysicsMaterial2D("solido") { friction = 0f, bounciness = 0f };
@@ -160,6 +164,29 @@ public static class ConstructorJuego
 
         // Script Camara en la Main Camera con el personaje como Target
         cam.gameObject.AddComponent<Camara>().target = pj.transform;
+
+        // Abejas para recolectar (x en casillas, y sobre el suelo)
+        var prefAbeja = CrearAbeja();
+        var abejas = new GameObject("Abejas");
+        foreach (var (x, y) in PosAbejas)
+            Colocar(prefAbeja, abejas.transform, x * Celda, SueloY + y);
+
+        // UI: Marcador con la imagen de la abeja y el texto con la cantidad
+        var canvas = NuevoCanvas();
+        var marcador = new GameObject("Marcador", typeof(RectTransform), typeof(Image));
+        marcador.transform.SetParent(canvas.transform, false);
+        var img = marcador.GetComponent<Image>();
+        img.sprite = prefAbeja.GetComponent<SpriteRenderer>().sprite;
+        img.preserveAspect = true;
+        Esquina(marcador.GetComponent<RectTransform>(), new Vector2(20, -20), new Vector2(120, 120));
+
+        var txt = new GameObject("TxtAbejas", typeof(RectTransform)).AddComponent<TextMeshProUGUI>();
+        txt.transform.SetParent(canvas.transform, false);
+        txt.text = "0";
+        txt.fontSize = 64;
+        txt.alignment = TextAlignmentOptions.MidlineLeft;
+        Esquina(txt.rectTransform, new Vector2(150, -20), new Vector2(300, 120));
+        pj.GetComponent<Jugador>().textoAbejas = txt;
 
         EditorSceneManager.MarkSceneDirty(escena);
         EditorSceneManager.SaveScene(escena);
@@ -243,6 +270,37 @@ public static class ConstructorJuego
         return ctrl;
     }
 
+    // ---------------------------------------------------------- Mobs
+    static GameObject CrearAbeja()
+    {
+        var clip = ExportarClip(Pack + "/Mob/Small Bee/Fly/Fly.aseprite", "Assets/Animaciones/Abeja", "Fly", true);
+        var go = Mob("Abeja", clip, "Assets/Animaciones/Abeja/Abeja.controller", "abejita");
+        // Capsule Collider 2D con Is Trigger para recolectarla
+        var cap = go.AddComponent<CapsuleCollider2D>();
+        cap.isTrigger = true;
+        cap.size = new Vector2(0.2f, 0.3f);
+        cap.offset = go.GetComponent<SpriteRenderer>().sprite.bounds.center;
+        return GuardarPrefab(go, "Assets/Prefab/Abeja.prefab");
+    }
+
+    static GameObject Mob(string nombre, AnimationClip clip, string rutaCtrl, string tag)
+    {
+        var ctrl = AssetDatabase.LoadAssetAtPath<AnimatorController>(rutaCtrl)
+                   ?? AnimatorController.CreateAnimatorControllerAtPathWithClip(rutaCtrl, clip);
+        var go = new GameObject(nombre) { tag = tag };
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sprite = PrimerSprite(clip);
+        sr.sortingOrder = 2;
+        go.AddComponent<Animator>().runtimeAnimatorController = ctrl;
+        return go;
+    }
+
+    static readonly (float, float)[] PosAbejas =
+    {
+        (-3, 0), (8, 0.6f), (18, 0), (35, 0.6f), (43, 0.95f), (52.5f, 0.45f), (62.5f, 0.6f),
+        (70, 1.1f), (90, 0), (98, 0.6f), (107, 0.95f), (118, 0),
+    };
+
     // Tramos de piso (x inicial, x final, fila superior, profundidad) en casillas de 16 px
     static readonly (int, int, int, int)[] Nivel =
     {
@@ -276,6 +334,35 @@ public static class ConstructorJuego
         go.transform.SetParent(grid.transform, false);
         go.GetComponent<TilemapRenderer>().sortingOrder = orden;
         return go.GetComponent<Tilemap>();
+    }
+
+    static void Colocar(GameObject prefab, Transform padre, float x, float y)
+    {
+        var go = (GameObject)PrefabUtility.InstantiatePrefab(prefab, padre);
+        go.transform.position = new Vector3(x, y, 0);
+    }
+
+    // Canvas con UI Scale Mode "Scale With Screen Size"
+    static Canvas NuevoCanvas()
+    {
+        var go = new GameObject("Canvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+        go.layer = LayerMask.NameToLayer("UI");
+        var canvas = go.GetComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        var scaler = go.GetComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920, 1080);
+        scaler.matchWidthOrHeight = 0.5f;
+        new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+        return canvas;
+    }
+
+    // Anclado a la esquina superior izquierda
+    static void Esquina(RectTransform rt, Vector2 pos, Vector2 tam)
+    {
+        rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0, 1);
+        rt.anchoredPosition = pos;
+        rt.sizeDelta = tam;
     }
 
     static void Pared(GameObject piso, float x)
