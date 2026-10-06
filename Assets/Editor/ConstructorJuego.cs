@@ -83,6 +83,8 @@ public static class ConstructorJuego
     public static void Construir()
     {
         Carpeta("Assets/Tiles");
+        Carpeta("Assets/Prefab");
+        CrearLayer("Pisito");
 
         // Physics Material 2D "solido" con fricción 0
         var solido = new PhysicsMaterial2D("solido") { friction = 0f, bounciness = 0f };
@@ -101,8 +103,8 @@ public static class ConstructorJuego
     static void ConstruirEscenaJuego(PhysicsMaterial2D solido)
     {
         const string ruta = "Assets/Scenes/Juego.unity";
-        AssetDatabase.DeleteAsset(ruta);
-        AssetDatabase.CopyAsset("Assets/Scenes/SampleScene.unity", ruta);
+        File.Copy("Assets/Scenes/SampleScene.unity", ruta, true);
+        AssetDatabase.ImportAsset(ruta);
         var escena = EditorSceneManager.OpenScene(ruta);
 
         // Main Camera: Projection Size = 1.5
@@ -126,6 +128,7 @@ public static class ConstructorJuego
         var grid = new GameObject("Grid").AddComponent<Grid>();
         grid.cellSize = new Vector3(Celda, Celda, 0);
         var piso = NuevoTilemap(grid, "Piso", 0);
+        piso.gameObject.layer = LayerMask.NameToLayer("Pisito");
         var deco = NuevoTilemap(grid, "Decoracion", 1);
 
         // Bloque de pasto (5x5 arriba a la izquierda de la hoja de Tiles)
@@ -148,29 +151,49 @@ public static class ConstructorJuego
         Pared(piso.gameObject, (Nivel[0].Item1 - 0.5f) * Celda);
         Pared(piso.gameObject, (Nivel[3].Item2 + 1.5f) * Celda);
 
-        // Personaje (sprite Idle), por encima del fondo con Order in Layer 2
-        var idle = AssetDatabase.LoadAllAssetsAtPath(Pack + "/Character/Idle/Idle.aseprite").OfType<Sprite>().First();
-        var pj = new GameObject("Idle");
-        var sr = pj.AddComponent<SpriteRenderer>();
-        sr.sprite = idle;
-        sr.sortingOrder = 2;
+        // Personaje desde su prefab
+        var pj = (GameObject)PrefabUtility.InstantiatePrefab(CrearJugador(solido));
         pj.transform.position = new Vector3(InicioX * Celda, SueloY + 0.1f, 0);
-
-        // Rigidbody 2D: Collision Detection Continuous e Interpolate
-        var rb = pj.AddComponent<Rigidbody2D>();
-        rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
-        rb.interpolation = RigidbodyInterpolation2D.Interpolate;
-
-        // Capsule Collider 2D con el material "solido"
-        var cap = pj.AddComponent<CapsuleCollider2D>();
-        var b = idle.bounds;
-        cap.size = new Vector2(0.24f, b.size.y - 0.02f);
-        cap.offset = b.center;
-        cap.sharedMaterial = solido;
         cam.transform.position = new Vector3(pj.transform.position.x, pj.transform.position.y, -10);
 
         EditorSceneManager.MarkSceneDirty(escena);
         EditorSceneManager.SaveScene(escena);
+    }
+
+    // ---------------------------------------------------------- Personaje
+    static GameObject CrearJugador(PhysicsMaterial2D solido)
+    {
+        // Sprite Idle, por encima del fondo con Order in Layer 2
+        var idle = AssetDatabase.LoadAllAssetsAtPath(Pack + "/Character/Idle/Idle.aseprite").OfType<Sprite>().First();
+        var go = new GameObject("Idle");
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sprite = idle;
+        sr.sortingOrder = 2;
+
+        // Rigidbody 2D: Continuous, Interpolate y Freeze Rotation en Z
+        var rb = go.AddComponent<Rigidbody2D>();
+        rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+        rb.interpolation = RigidbodyInterpolation2D.Interpolate;
+        rb.constraints = RigidbodyConstraints2D.FreezeRotation;
+
+        // Capsule Collider 2D con el material "solido"
+        var cap = go.AddComponent<CapsuleCollider2D>();
+        var b = idle.bounds;
+        cap.size = new Vector2(0.24f, b.size.y - 0.02f);
+        cap.offset = b.center;
+        cap.sharedMaterial = solido;
+
+        // ComprobadorDePiso en los pies del personaje
+        var comprobador = new GameObject("ComprobadorDePiso");
+        comprobador.transform.SetParent(go.transform, false);
+        comprobador.transform.localPosition = new Vector3(b.center.x, b.min.y, 0);
+
+        var j = go.AddComponent<Jugador>();
+        j.velocidad = 2f;
+        j.comprobadorPiso = comprobador.transform;
+        j.layerPiso = LayerMask.GetMask("Pisito");
+
+        return GuardarPrefab(go, "Assets/Prefab/Jugador.prefab");
     }
 
     // Tramos de piso (x inicial, x final, fila superior, profundidad) en casillas de 16 px
@@ -213,6 +236,34 @@ public static class ConstructorJuego
         var box = piso.AddComponent<BoxCollider2D>();
         box.offset = new Vector2(x, 1f);
         box.size = new Vector2(Celda, 6f);
+    }
+
+    static GameObject GuardarPrefab(GameObject go, string ruta)
+    {
+        var prefab = PrefabUtility.SaveAsPrefabAsset(go, ruta);
+        Object.DestroyImmediate(go);
+        return prefab;
+    }
+
+    // Project Settings > Tags and Layers
+    static void CrearLayer(string nombre)
+    {
+        if (LayerMask.NameToLayer(nombre) >= 0) return;
+        var tm = new SerializedObject(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]);
+        var layers = tm.FindProperty("layers");
+        for (int i = 6; i < layers.arraySize; i++)
+            if (string.IsNullOrEmpty(layers.GetArrayElementAtIndex(i).stringValue))
+            {
+                layers.GetArrayElementAtIndex(i).stringValue = nombre;
+                tm.ApplyModifiedProperties();
+                return;
+            }
+    }
+
+    static void CrearTag(string nombre)
+    {
+        if (UnityEditorInternal.InternalEditorUtility.tags.Contains(nombre)) return;
+        UnityEditorInternal.InternalEditorUtility.AddTag(nombre);
     }
 
     static void Guardar(Object obj, string ruta)
