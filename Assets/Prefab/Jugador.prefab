@@ -301,6 +301,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 64
   textoAbejas: {fileID: 0}
+  esperaTrasMorir: 0.6
   audioSource: {fileID: 651377690821807325}
   audioPuerquito: {fileID: 8300000, guid: 04f06b9337540bc7fb6580ab2562171e, type: 3}
   audioCaracol: {fileID: 8300000, guid: 56dc88c5b0653ffd8b2ad6ba9ad0f432, type: 3}

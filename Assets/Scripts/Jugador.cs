@@ -16,6 +16,8 @@ public class Jugador : MonoBehaviour
     private int cantAbejas = 0;
     public TMP_Text textoAbejas;
     private bool enRetroceso = false;
+    private bool muerto = false;
+    public float esperaTrasMorir = 0.6f; // segundos extra después de la animación Dead
     public AudioSource audioSource;
     public AudioClip audioPuerquito;
     public AudioClip audioCaracol;
@@ -33,6 +35,7 @@ public class Jugador : MonoBehaviour
 
     void Update()
     {
+        if (muerto) return;
         if (!enRetroceso)
         {
             movimiento = Input.GetAxisRaw("Horizontal");
@@ -55,6 +58,7 @@ public class Jugador : MonoBehaviour
 
     private void OnTriggerEnter2D(Collider2D collision)
     {
+        if (muerto) return;
         if (collision.transform.CompareTag("abejita"))
         {
             audioSource.PlayOneShot(audioAbeja);
@@ -65,10 +69,7 @@ public class Jugador : MonoBehaviour
         if (collision.transform.CompareTag("puerquito"))
         {
             audioSource.PlayOneShot(audioPuerquito);
-            // Se espera medio segundo para que se alcance a escuchar el sonido
-            enRetroceso = true;
-            rb.linearVelocity = Vector2.zero;
-            Invoke(nameof(VolverAlMenu), 0.5f);
+            Morir();
         }
         if (collision.transform.CompareTag("caracol"))
         {
@@ -108,6 +109,22 @@ public class Jugador : MonoBehaviour
                 Destroy(golpe.gameObject, 0.4f);
             }
         }
+    }
+
+    // Se queda quieto, reproduce la animación Dead y al terminar vuelve al menú
+    void Morir()
+    {
+        muerto = true;
+        enRetroceso = true;
+        rb.linearVelocity = Vector2.zero;
+        rb.bodyType = RigidbodyType2D.Kinematic;
+        animator.SetFloat("Velocidad", 0);
+        animator.SetFloat("VelocidadVertical", 0);
+        animator.SetTrigger("Morir");
+        float duracion = 1f;
+        foreach (AnimationClip clip in animator.runtimeAnimatorController.animationClips)
+            if (clip.name == "Dead") duracion = clip.length;
+        Invoke(nameof(VolverAlMenu), duracion + esperaTrasMorir);
     }
 
     void QuitarRetroceso()

@@ -372,11 +372,13 @@ public static class ConstructorJuego
         var animJump = ExportarClip(Pack + "/Character/Jump/Jump.aseprite", dir, "Jump", false);
         var animJumpEnd = ExportarClip(Pack + "/Character/Jump-End/Jump-End.aseprite", dir, "Jump-End", false);
         var animAtaque = ExportarClip(Pack + "/Character/Attack-01/Attack-01.aseprite", dir, "Attack-01", false);
+        var animMuerte = ExportarClip(Pack + "/Character/Dead/Dead.aseprite", dir, "Dead", false);
 
         // PjController: parámetros Velocidad, VelocidadVertical y estaEnPiso
         var ctrl = AssetDatabase.LoadAssetAtPath<AnimatorController>(dir + "/PjController.controller")
                    ?? CrearPjController(dir, animIdle, animRun, animJump, animJumpEnd);
         AgregarAtaque(ctrl, animAtaque);
+        AgregarMuerte(ctrl, animMuerte);
 
         // Sprite Idle, por encima del fondo con Order in Layer 2
         var idle = PrimerSprite(animIdle);
@@ -540,6 +542,21 @@ public static class ConstructorJuego
         entrar.AddCondition(AnimatorConditionMode.If, 0, "Atacar");
         var salir = sAtaque.AddTransition(sm.defaultState);
         salir.hasExitTime = true; salir.exitTime = 1f; salir.duration = 0;
+        EditorUtility.SetDirty(ctrl);
+        AssetDatabase.SaveAssets();
+    }
+
+    // Estado Dead (sin loop ni salida) que se activa desde cualquier estado con el trigger Morir
+    static void AgregarMuerte(AnimatorController ctrl, AnimationClip clip)
+    {
+        if (ctrl.parameters.Any(p => p.name == "Morir")) return;
+        ctrl.AddParameter("Morir", AnimatorControllerParameterType.Trigger);
+        var sm = ctrl.layers[0].stateMachine;
+        var sMuerte = sm.AddState("Dead", new Vector3(0, 360));
+        sMuerte.motion = clip;
+        var entrar = sm.AddAnyStateTransition(sMuerte);
+        entrar.hasExitTime = false; entrar.duration = 0; entrar.canTransitionToSelf = false;
+        entrar.AddCondition(AnimatorConditionMode.If, 0, "Morir");
         EditorUtility.SetDirty(ctrl);
         AssetDatabase.SaveAssets();
     }
