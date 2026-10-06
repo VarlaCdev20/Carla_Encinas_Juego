@@ -33,4 +33,8 @@ Recolecta las abejas, pisa a los caracoles y evita a los puerquitos (y no te cai
 - [x] 10. Caracoles que se pisan con rebote
 - [x] 11. Música de fondo y efectos de sonido
 - [x] 12. Menú principal con botones Jugar, Opciones y Salir
-- [ ] 13. Exportar el juego (Build)
+- [x] 13. Exportar el juego (Build)
+
+## Exportar el juego
+
+En Unity: **File > Build Profiles > Build** (o el menú **Juego > 3. Exportar juego**). El ejecutable de Linux queda en `Builds/Linux/CarlitaMiJueguito.x86_64`. La carpeta `Builds/` no se sube al repositorio.

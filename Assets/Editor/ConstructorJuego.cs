@@ -15,6 +15,7 @@ using UnityEngine.UI;
 // Automatiza los pasos de la guía "Creando un videojuego 2D con Unity".
 // Paso 1: Unity -batchmode -executeMethod ConstructorJuego.Preparar
 // Paso 2: Unity -batchmode -executeMethod ConstructorJuego.Construir
+// Paso 3: Unity -batchmode -executeMethod ConstructorJuego.Exportar
 // También se puede lanzar desde el menú "Juego" del editor.
 public static class ConstructorJuego
 {
@@ -226,6 +227,22 @@ public static class ConstructorJuego
 
         EditorSceneManager.MarkSceneDirty(escena);
         EditorSceneManager.SaveScene(escena);
+    }
+
+    // ---------------------------------------------------------- Build
+    // File > Build Profiles > Build (Linux; Windows y Android necesitan su módulo instalado)
+    [MenuItem("Juego/3. Exportar juego")]
+    public static void Exportar()
+    {
+        var opciones = new BuildPlayerOptions
+        {
+            scenes = EditorBuildSettings.scenes.Where(e => e.enabled).Select(e => e.path).ToArray(),
+            locationPathName = "Builds/Linux/CarlitaMiJueguito.x86_64",
+            target = BuildTarget.StandaloneLinux64,
+            options = BuildOptions.None,
+        };
+        var reporte = BuildPipeline.BuildPlayer(opciones);
+        Debug.Log($"[Constructor] Exportar {reporte.summary.result}: {reporte.summary.totalSize / (1024 * 1024)} MB");
     }
 
     // ---------------------------------------------------------- Menú
