@@ -32,5 +32,5 @@ Recolecta las abejas, pisa a los caracoles y evita a los puerquitos (y no te cai
 - [x] 9. Puerquitos y zona de caída que reinician el nivel
 - [x] 10. Caracoles que se pisan con rebote
 - [x] 11. Música de fondo y efectos de sonido
-- [ ] 12. Menú principal con botones Jugar, Opciones y Salir
+- [x] 12. Menú principal con botones Jugar, Opciones y Salir
 - [ ] 13. Exportar el juego (Build)

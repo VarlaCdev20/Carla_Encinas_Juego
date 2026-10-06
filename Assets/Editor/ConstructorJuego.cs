@@ -4,6 +4,7 @@ using System.Linq;
 using TMPro;
 using UnityEditor;
 using UnityEditor.Animations;
+using UnityEditor.Events;
 using UnityEditor.SceneManagement;
 using UnityEditor.U2D.Sprites;
 using UnityEngine;
@@ -104,8 +105,12 @@ public static class ConstructorJuego
         solido = AssetDatabase.LoadAssetAtPath<PhysicsMaterial2D>("Assets/solido.physicsMaterial2D");
 
         ConstruirEscenaJuego(solido);
+        ConstruirEscenaMenu();
+
+        // File > Build Profiles > Scene List: el menú primero
         EditorBuildSettings.scenes = new[]
         {
+            new EditorBuildSettingsScene("Assets/Scenes/MenuPrincipal.unity", true),
             new EditorBuildSettingsScene("Assets/Scenes/Juego.unity", true),
         };
         AssetDatabase.SaveAssets();
@@ -221,6 +226,123 @@ public static class ConstructorJuego
 
         EditorSceneManager.MarkSceneDirty(escena);
         EditorSceneManager.SaveScene(escena);
+    }
+
+    // ---------------------------------------------------------- Menú
+    static void ConstruirEscenaMenu()
+    {
+        const string ruta = "Assets/Scenes/MenuPrincipal.unity";
+        File.Copy("Assets/Scenes/SampleScene.unity", ruta, true);
+        AssetDatabase.ImportAsset(ruta);
+        var escena = EditorSceneManager.OpenScene(ruta);
+        var cam = Camera.main;
+        var opciones = cam.gameObject.AddComponent<OpcionesMenu>();
+
+        // Canvas con Reference Resolution 1920x1080 y Match 0.5
+        var canvas = NuevoCanvas();
+        var recursos = new TMP_DefaultControls.Resources
+        {
+            standard = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd"),
+            background = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Background.psd"),
+        };
+
+        // Fondo del bosque
+        var fondo = new GameObject("Fondo", typeof(RectTransform), typeof(Image));
+        fondo.transform.SetParent(canvas.transform, false);
+        fondo.GetComponent<Image>().sprite = AssetDatabase.LoadAllAssetsAtPath(Pack + "/Background/Background.aseprite").OfType<Sprite>().First();
+        Estirar(fondo.GetComponent<RectTransform>());
+
+        var titulo = Texto(canvas.transform, "Titulo", "Carlita Mi Jueguito", 120, new Vector2(0, 320), new Vector2(1600, 170));
+        titulo.fontStyle = FontStyles.Bold;
+        titulo.color = new Color(0.27f, 0.17f, 0.13f);
+        var autor = Texto(canvas.transform, "Autor", "por Carla Encinas", 50, new Vector2(0, 205), new Vector2(1000, 80));
+        autor.color = new Color(0.27f, 0.17f, 0.13f);
+
+        var jugar = Boton(canvas.transform, recursos, "Jugar", new Vector2(0, 40), "PLAY_BOTTOM_BOLD");
+        var btnOpciones = Boton(canvas.transform, recursos, "Opciones", new Vector2(0, -110), "OPTIONS_BOTTOM_BOLD");
+        var salir = Boton(canvas.transform, recursos, "Salir", new Vector2(0, -260), "EXIT_BOTTOM_BOLD");
+        UnityEventTools.AddPersistentListener(jugar.onClick, opciones.vamosAjugar);
+        UnityEventTools.AddPersistentListener(salir.onClick, opciones.salir);
+
+        // Panelito: panel de opciones con su botón Cerrar, empieza desactivado
+        var panelito = new GameObject("Panelito", typeof(RectTransform));
+        panelito.transform.SetParent(canvas.transform, false);
+        Estirar(panelito.GetComponent<RectTransform>());
+        var panel = new GameObject("Panel de opciones", typeof(RectTransform), typeof(Image));
+        panel.transform.SetParent(panelito.transform, false);
+        panel.GetComponent<Image>().color = new Color(0.36f, 0.24f, 0.2f, 0.97f);
+        panel.GetComponent<RectTransform>().sizeDelta = new Vector2(900, 620);
+        Texto(panel.transform, "TxtOpciones", "Opciones", 72, new Vector2(0, 215), new Vector2(800, 100));
+        Texto(panel.transform, "TxtControles",
+            "Moverse: A / D o flechas\nSaltar: Espacio\n\nRecolecta todas las abejas,\npisa a los caracoles\ny cuidado con los puerquitos",
+            40, new Vector2(0, 10), new Vector2(800, 320));
+        var cerrar = Boton(panel.transform, recursos, "Cerrar", new Vector2(0, -215), "BLANK_BOND");
+        UnityEventTools.AddBoolPersistentListener(btnOpciones.onClick, panelito.SetActive, true);
+        UnityEventTools.AddBoolPersistentListener(cerrar.onClick, panelito.SetActive, false);
+        panelito.SetActive(false);
+
+        EditorSceneManager.MarkSceneDirty(escena);
+        EditorSceneManager.SaveScene(escena);
+    }
+
+    // Imagen del pack de botones: _1 normal y _2 al pasar el mouse o presionar.
+    // Las imágenes PLAY, OPTIONS y EXIT ya traen el texto; el botón en blanco usa el texto del botón.
+    static Button Boton(Transform padre, TMP_DefaultControls.Resources recursos, string texto, Vector2 pos, string imagen)
+    {
+        var go = TMP_DefaultControls.CreateButton(recursos);
+        go.name = "Boton" + texto;
+        go.transform.SetParent(padre, false);
+        var rt = go.GetComponent<RectTransform>();
+        rt.anchoredPosition = pos;
+        rt.sizeDelta = new Vector2(514, 130);
+        var tmp = go.GetComponentInChildren<TextMeshProUGUI>();
+        tmp.text = texto;
+        tmp.fontSize = 56;
+        tmp.fontStyle = FontStyles.Bold;
+        tmp.color = Color.white;
+        var boton = go.GetComponent<Button>();
+        var img = go.GetComponent<Image>();
+        img.sprite = SpriteBoton(imagen + "_1");
+        img.type = Image.Type.Simple;
+        img.preserveAspect = true;
+        boton.transition = Selectable.Transition.SpriteSwap;
+        boton.spriteState = new SpriteState { highlightedSprite = SpriteBoton(imagen + "_2"), pressedSprite = SpriteBoton(imagen + "_2"), selectedSprite = img.sprite };
+        tmp.gameObject.SetActive(imagen.StartsWith("BLANK"));
+        return boton;
+    }
+
+    static Sprite SpriteBoton(string nombre)
+    {
+        string ruta = $"Assets/Sprites/Botones/{nombre}.png";
+        var imp = (TextureImporter)AssetImporter.GetAtPath(ruta);
+        if (imp.textureType != TextureImporterType.Sprite || imp.filterMode != FilterMode.Point)
+        {
+            imp.textureType = TextureImporterType.Sprite;
+            imp.spriteImportMode = SpriteImportMode.Single;
+            imp.filterMode = FilterMode.Point;
+            imp.textureCompression = TextureImporterCompression.Uncompressed;
+            imp.SaveAndReimport();
+        }
+        return AssetDatabase.LoadAssetAtPath<Sprite>(ruta);
+    }
+
+    static TextMeshProUGUI Texto(Transform padre, string nombre, string texto, float tam, Vector2 pos, Vector2 caja)
+    {
+        var t = new GameObject(nombre, typeof(RectTransform)).AddComponent<TextMeshProUGUI>();
+        t.transform.SetParent(padre, false);
+        t.text = texto;
+        t.fontSize = tam;
+        t.alignment = TextAlignmentOptions.Center;
+        t.rectTransform.anchoredPosition = pos;
+        t.rectTransform.sizeDelta = caja;
+        return t;
+    }
+
+    static void Estirar(RectTransform rt)
+    {
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+        rt.offsetMin = rt.offsetMax = Vector2.zero;
     }
 
     // ---------------------------------------------------------- Personaje
