@@ -24,7 +24,7 @@ Recolecta las abejas, pisa a los caracoles y evita a los puerquitos (y no te cai
 - [x] 1. Crear el proyecto Universal 2D, configurar el input en "Both" y preparar el repositorio
 - [x] 2. Importar los sprites y cortar los Tiles (16x16, Point)
 - [x] 3. Armar la escena: personaje, cámara, fondo y piso con Tilemap
-- [ ] 4. Físicas: Rigidbody 2D, Capsule Collider 2D, material "solido" y Tilemap Collider 2D
+- [x] 4. Físicas: Rigidbody 2D, Capsule Collider 2D, material "solido" y Tilemap Collider 2D
 - [ ] 5. Script Jugador: movimiento, giro, salto (layer Pisito) y prefab del personaje
 - [ ] 6. Animaciones del personaje (Idle, Run, Jump, Jump-End) con PjController
 - [ ] 7. Cámara que sigue al personaje

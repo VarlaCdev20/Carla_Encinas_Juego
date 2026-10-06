@@ -83,7 +83,13 @@ public static class ConstructorJuego
     public static void Construir()
     {
         Carpeta("Assets/Tiles");
-        ConstruirEscenaJuego();
+
+        // Physics Material 2D "solido" con fricción 0
+        var solido = new PhysicsMaterial2D("solido") { friction = 0f, bounciness = 0f };
+        Guardar(solido, "Assets/solido.physicsMaterial2D");
+        solido = AssetDatabase.LoadAssetAtPath<PhysicsMaterial2D>("Assets/solido.physicsMaterial2D");
+
+        ConstruirEscenaJuego(solido);
         EditorBuildSettings.scenes = new[]
         {
             new EditorBuildSettingsScene("Assets/Scenes/Juego.unity", true),
@@ -92,7 +98,7 @@ public static class ConstructorJuego
         Debug.Log("[Constructor] Construir OK");
     }
 
-    static void ConstruirEscenaJuego()
+    static void ConstruirEscenaJuego(PhysicsMaterial2D solido)
     {
         const string ruta = "Assets/Scenes/Juego.unity";
         AssetDatabase.DeleteAsset(ruta);
@@ -137,6 +143,11 @@ public static class ConstructorJuego
         }
         foreach (var (x0, x1, y, prof) in Nivel) Plataforma(x0, x1, y, prof);
 
+        // Colisión del piso y paredes invisibles en los extremos del nivel
+        piso.gameObject.AddComponent<TilemapCollider2D>();
+        Pared(piso.gameObject, (Nivel[0].Item1 - 0.5f) * Celda);
+        Pared(piso.gameObject, (Nivel[3].Item2 + 1.5f) * Celda);
+
         // Personaje (sprite Idle), por encima del fondo con Order in Layer 2
         var idle = AssetDatabase.LoadAllAssetsAtPath(Pack + "/Character/Idle/Idle.aseprite").OfType<Sprite>().First();
         var pj = new GameObject("Idle");
@@ -144,6 +155,18 @@ public static class ConstructorJuego
         sr.sprite = idle;
         sr.sortingOrder = 2;
         pj.transform.position = new Vector3(InicioX * Celda, SueloY + 0.1f, 0);
+
+        // Rigidbody 2D: Collision Detection Continuous e Interpolate
+        var rb = pj.AddComponent<Rigidbody2D>();
+        rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+        rb.interpolation = RigidbodyInterpolation2D.Interpolate;
+
+        // Capsule Collider 2D con el material "solido"
+        var cap = pj.AddComponent<CapsuleCollider2D>();
+        var b = idle.bounds;
+        cap.size = new Vector2(0.24f, b.size.y - 0.02f);
+        cap.offset = b.center;
+        cap.sharedMaterial = solido;
         cam.transform.position = new Vector3(pj.transform.position.x, pj.transform.position.y, -10);
 
         EditorSceneManager.MarkSceneDirty(escena);
@@ -183,6 +206,19 @@ public static class ConstructorJuego
         go.transform.SetParent(grid.transform, false);
         go.GetComponent<TilemapRenderer>().sortingOrder = orden;
         return go.GetComponent<Tilemap>();
+    }
+
+    static void Pared(GameObject piso, float x)
+    {
+        var box = piso.AddComponent<BoxCollider2D>();
+        box.offset = new Vector2(x, 1f);
+        box.size = new Vector2(Celda, 6f);
+    }
+
+    static void Guardar(Object obj, string ruta)
+    {
+        AssetDatabase.DeleteAsset(ruta);
+        AssetDatabase.CreateAsset(obj, ruta);
     }
 
     static void Carpeta(string ruta)
