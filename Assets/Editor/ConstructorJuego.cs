@@ -291,7 +291,7 @@ public static class ConstructorJuego
         panel.GetComponent<RectTransform>().sizeDelta = new Vector2(900, 620);
         Texto(panel.transform, "TxtOpciones", "Opciones", 72, new Vector2(0, 215), new Vector2(800, 100));
         Texto(panel.transform, "TxtControles",
-            "Moverse: A / D o flechas\nSaltar: Espacio\n\nRecolecta todas las abejas,\npisa a los caracoles\ny cuidado con los puerquitos",
+            "Moverse: A / D o flechas\nSaltar: Espacio\nAtacar: clic izquierdo o Ctrl\n\nRecolecta todas las abejas, pisa a los\ncaracoles y usa la espada con los puerquitos",
             40, new Vector2(0, 10), new Vector2(800, 320));
         var cerrar = Boton(panel.transform, recursos, "Cerrar", new Vector2(0, -215), "BLANK_BOND");
         UnityEventTools.AddBoolPersistentListener(btnOpciones.onClick, panelito.SetActive, true);
