@@ -28,6 +28,8 @@ public static class ConstructorJuego
     {
         // Sprite Editor > Slice > Grid by cell size 16x16, Filter mode Point (no filter)
         CortarHoja(RutaTiles, TamTile, TamTile, "Tiles", new Vector2(0.5f, 0.5f));
+        // La muerte del caracol viene en una sola imagen: 8 cuadros de 48x32
+        CortarHoja(Pack + "/Mob/Snail/Dead-Sheet.png", 48, 32, "Dead-Sheet", new Vector2(0.5f, 0f));
         AssetDatabase.SaveAssets();
         Debug.Log("[Constructor] Preparar OK");
     }
@@ -35,6 +37,8 @@ public static class ConstructorJuego
     static void CortarHoja(string ruta, int ancho, int alto, string prefijo, Vector2 pivote)
     {
         var imp = (TextureImporter)AssetImporter.GetAtPath(ruta);
+        if (imp.spriteImportMode == SpriteImportMode.Multiple && imp.filterMode == FilterMode.Point)
+            return; // ya estaba cortada
         imp.textureType = TextureImporterType.Sprite;
         imp.spriteImportMode = SpriteImportMode.Multiple;
         imp.filterMode = FilterMode.Point;
@@ -92,6 +96,7 @@ public static class ConstructorJuego
         CrearLayer("Pisito");
         CrearTag("abejita");
         CrearTag("puerquito");
+        CrearTag("caracol");
 
         // Physics Material 2D "solido" con fricción 0
         var solido = new PhysicsMaterial2D("solido") { friction = 0f, bounciness = 0f };
@@ -177,6 +182,11 @@ public static class ConstructorJuego
         var mobs = new GameObject("Mobs");
         foreach (var x in PosPuerquitos)
             Colocar(prefPuerquito, mobs.transform, x * Celda, SueloY);
+
+        // Caracoles para pisar
+        var prefCaracol = CrearCaracol();
+        foreach (var x in PosCaracoles)
+            Colocar(prefCaracol, mobs.transform, x * Celda, SueloY);
 
         // Zona invisible bajo el nivel: si el personaje cae, también reinicia (tag puerquito)
         var vacio = new GameObject("Vacio") { tag = "puerquito" };
@@ -310,6 +320,29 @@ public static class ConstructorJuego
         return GuardarPrefab(go, "Assets/Prefab/Puerquito.prefab");
     }
 
+    static GameObject CrearCaracol()
+    {
+        // Animación Dead sin Loop Time; el Animator arranca apagado y se activa al pisarlo
+        var cuadros = AssetDatabase.LoadAllAssetsAtPath(Pack + "/Mob/Snail/Dead-Sheet.png").OfType<Sprite>()
+            .OrderBy(s => int.Parse(s.name.Split('_')[1])).ToArray();
+        var clip = ClipDeSprites(cuadros, "Assets/Animaciones/Caracol", "Dead", 12, false);
+        var go = Mob("Caracol", clip, "Assets/Animaciones/Caracol/Caracol.controller", "caracol");
+        go.GetComponent<Animator>().enabled = false;
+
+        // Box Collider 2D en el cuerpo (dejando libre la cabeza)
+        var box = go.AddComponent<BoxCollider2D>();
+        box.size = new Vector2(0.27f, 0.15f);
+        box.offset = new Vector2(0, 0.075f);
+
+        // Capsule Collider 2D horizontal encima, como trigger para el pisotón
+        var cap = go.AddComponent<CapsuleCollider2D>();
+        cap.isTrigger = true;
+        cap.direction = CapsuleDirection2D.Horizontal;
+        cap.size = new Vector2(0.27f, 0.08f);
+        cap.offset = new Vector2(0, 0.19f);
+        return GuardarPrefab(go, "Assets/Prefab/Caracol.prefab");
+    }
+
     static GameObject Mob(string nombre, AnimationClip clip, string rutaCtrl, string tag)
     {
         var ctrl = AssetDatabase.LoadAssetAtPath<AnimatorController>(rutaCtrl)
@@ -328,6 +361,7 @@ public static class ConstructorJuego
         (70, 1.1f), (90, 0), (98, 0.6f), (107, 0.95f), (118, 0),
     };
 
+    static readonly float[] PosCaracoles = { 13, 39, 66, 93, 120 };
     static readonly float[] PosPuerquitos = { 21, 47, 75, 113 };
 
     // Tramos de piso (x inicial, x final, fila superior, profundidad) en casillas de 16 px
@@ -417,6 +451,22 @@ public static class ConstructorJuego
                 EditorCurveBinding.PPtrCurve("", typeof(SpriteRenderer), "m_Sprite"), curva);
             break;
         }
+        var ajustes = AnimationUtility.GetAnimationClipSettings(clip);
+        ajustes.loopTime = loop;
+        AnimationUtility.SetAnimationClipSettings(clip, ajustes);
+        Guardar(clip, $"{dir}/{nombre}.anim");
+        return AssetDatabase.LoadAssetAtPath<AnimationClip>($"{dir}/{nombre}.anim");
+    }
+
+    static AnimationClip ClipDeSprites(Sprite[] cuadros, string dir, string nombre, float fps, bool loop)
+    {
+        Carpeta(dir);
+        var ya = AssetDatabase.LoadAssetAtPath<AnimationClip>($"{dir}/{nombre}.anim");
+        if (ya != null) return ya;
+        var clip = new AnimationClip { frameRate = fps, name = nombre };
+        var claves = cuadros.Select((s, i) => new ObjectReferenceKeyframe { time = i / fps, value = s }).ToArray();
+        AnimationUtility.SetObjectReferenceCurve(clip,
+            EditorCurveBinding.PPtrCurve("", typeof(SpriteRenderer), "m_Sprite"), claves);
         var ajustes = AnimationUtility.GetAnimationClipSettings(clip);
         ajustes.loopTime = loop;
         AnimationUtility.SetAnimationClipSettings(clip, ajustes);
