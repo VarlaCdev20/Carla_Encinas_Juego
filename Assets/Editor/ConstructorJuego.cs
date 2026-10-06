@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEditor;
+using UnityEditor.Animations;
 using UnityEditor.SceneManagement;
 using UnityEditor.U2D.Sprites;
 using UnityEngine;
@@ -84,6 +85,7 @@ public static class ConstructorJuego
     {
         Carpeta("Assets/Tiles");
         Carpeta("Assets/Prefab");
+        Carpeta("Assets/Animaciones");
         CrearLayer("Pisito");
 
         // Physics Material 2D "solido" con fricción 0
@@ -163,12 +165,47 @@ public static class ConstructorJuego
     // ---------------------------------------------------------- Personaje
     static GameObject CrearJugador(PhysicsMaterial2D solido)
     {
+        // Animaciones exportadas del pack a Animaciones/Jugador
+        string dir = "Assets/Animaciones/Jugador";
+        var animIdle = ExportarClip(Pack + "/Character/Idle/Idle.aseprite", dir, "Idle", true);
+        var animRun = ExportarClip(Pack + "/Character/Run/Run.aseprite", dir, "Run", true);
+        var animJump = ExportarClip(Pack + "/Character/Jump/Jump.aseprite", dir, "Jump", false);
+        var animJumpEnd = ExportarClip(Pack + "/Character/Jump-End/Jump-End.aseprite", dir, "Jump-End", false);
+
+        // PjController: parámetros Velocidad, VelocidadVertical y estaEnPiso
+        var ctrl = AnimatorController.CreateAnimatorControllerAtPath(dir + "/PjController.controller");
+        ctrl.AddParameter("Velocidad", AnimatorControllerParameterType.Float);
+        ctrl.AddParameter("VelocidadVertical", AnimatorControllerParameterType.Float);
+        ctrl.AddParameter("estaEnPiso", AnimatorControllerParameterType.Bool);
+        var sm = ctrl.layers[0].stateMachine;
+        var sIdle = sm.AddState("Idle", new Vector3(300, 0));
+        var sRun = sm.AddState("Run", new Vector3(300, 120));
+        var sJump = sm.AddState("Jump", new Vector3(600, 0));
+        var sJumpEnd = sm.AddState("Jump-End", new Vector3(600, 120));
+        sIdle.motion = animIdle; sRun.motion = animRun; sJump.motion = animJump; sJumpEnd.motion = animJumpEnd;
+        sm.defaultState = sIdle;
+
+        // Sin Has Exit Time y con Transition Duration 0
+        Transicion(sIdle, sRun, ("Velocidad", AnimatorConditionMode.Greater, 0.1f));
+        Transicion(sRun, sIdle, ("Velocidad", AnimatorConditionMode.Less, 0.1f));
+        var anyJump = sm.AddAnyStateTransition(sJump);
+        anyJump.hasExitTime = false; anyJump.duration = 0; anyJump.canTransitionToSelf = false;
+        anyJump.AddCondition(AnimatorConditionMode.Greater, 0.1f, "VelocidadVertical");
+        anyJump.AddCondition(AnimatorConditionMode.IfNot, 0, "estaEnPiso");
+        Transicion(sJump, sJumpEnd, ("VelocidadVertical", AnimatorConditionMode.Less, 0.1f));
+        Transicion(sJumpEnd, sRun, ("Velocidad", AnimatorConditionMode.Greater, 0.1f), ("estaEnPiso", AnimatorConditionMode.If, 0));
+        Transicion(sJumpEnd, sIdle, ("Velocidad", AnimatorConditionMode.Less, 0.1f), ("estaEnPiso", AnimatorConditionMode.If, 0));
+        // Caer de un borde sin saltar también usa la animación de caída
+        Transicion(sIdle, sJumpEnd, ("VelocidadVertical", AnimatorConditionMode.Less, -0.5f), ("estaEnPiso", AnimatorConditionMode.IfNot, 0));
+        Transicion(sRun, sJumpEnd, ("VelocidadVertical", AnimatorConditionMode.Less, -0.5f), ("estaEnPiso", AnimatorConditionMode.IfNot, 0));
+
         // Sprite Idle, por encima del fondo con Order in Layer 2
-        var idle = AssetDatabase.LoadAllAssetsAtPath(Pack + "/Character/Idle/Idle.aseprite").OfType<Sprite>().First();
+        var idle = PrimerSprite(animIdle);
         var go = new GameObject("Idle");
         var sr = go.AddComponent<SpriteRenderer>();
         sr.sprite = idle;
         sr.sortingOrder = 2;
+        go.AddComponent<Animator>().runtimeAnimatorController = ctrl;
 
         // Rigidbody 2D: Continuous, Interpolate y Freeze Rotation en Z
         var rb = go.AddComponent<Rigidbody2D>();
@@ -238,6 +275,38 @@ public static class ConstructorJuego
         box.size = new Vector2(Celda, 6f);
     }
 
+    // Copia la animación que genera el importador de Aseprite a Animaciones/<carpeta>
+    static AnimationClip ExportarClip(string rutaAse, string dir, string nombre, bool loop)
+    {
+        Carpeta(dir);
+        var original = AssetDatabase.LoadAllAssetsAtPath(rutaAse).OfType<AnimationClip>().First();
+        var clip = new AnimationClip { frameRate = original.frameRate, name = nombre };
+        foreach (var b in AnimationUtility.GetObjectReferenceCurveBindings(original))
+        {
+            if (b.type != typeof(SpriteRenderer)) continue;
+            var curva = AnimationUtility.GetObjectReferenceCurve(original, b);
+            AnimationUtility.SetObjectReferenceCurve(clip,
+                EditorCurveBinding.PPtrCurve("", typeof(SpriteRenderer), "m_Sprite"), curva);
+            break;
+        }
+        var ajustes = AnimationUtility.GetAnimationClipSettings(clip);
+        ajustes.loopTime = loop;
+        AnimationUtility.SetAnimationClipSettings(clip, ajustes);
+        Guardar(clip, $"{dir}/{nombre}.anim");
+        return AssetDatabase.LoadAssetAtPath<AnimationClip>($"{dir}/{nombre}.anim");
+    }
+
+    static Sprite PrimerSprite(AnimationClip clip) =>
+        (Sprite)AnimationUtility.GetObjectReferenceCurve(clip, AnimationUtility.GetObjectReferenceCurveBindings(clip)[0])[0].value;
+
+    static void Transicion(AnimatorState de, AnimatorState a, params (string p, AnimatorConditionMode m, float v)[] conds)
+    {
+        var t = de.AddTransition(a);
+        t.hasExitTime = false;
+        t.duration = 0;
+        foreach (var c in conds) t.AddCondition(c.m, c.v, c.p);
+    }
+
     static GameObject GuardarPrefab(GameObject go, string ruta)
     {
         var prefab = PrefabUtility.SaveAsPrefabAsset(go, ruta);
@@ -266,8 +335,17 @@ public static class ConstructorJuego
         UnityEditorInternal.InternalEditorUtility.AddTag(nombre);
     }
 
+    // Si el asset ya existe se sobrescribe su contenido para conservar el GUID
     static void Guardar(Object obj, string ruta)
     {
+        var existente = AssetDatabase.LoadMainAssetAtPath(ruta);
+        if (existente != null && existente.GetType() == obj.GetType())
+        {
+            EditorUtility.CopySerialized(obj, existente);
+            EditorUtility.SetDirty(existente);
+            AssetDatabase.SaveAssetIfDirty(existente);
+            return;
+        }
         AssetDatabase.DeleteAsset(ruta);
         AssetDatabase.CreateAsset(obj, ruta);
     }
