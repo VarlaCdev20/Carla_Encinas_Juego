@@ -371,10 +371,12 @@ public static class ConstructorJuego
         var animRun = ExportarClip(Pack + "/Character/Run/Run.aseprite", dir, "Run", true);
         var animJump = ExportarClip(Pack + "/Character/Jump/Jump.aseprite", dir, "Jump", false);
         var animJumpEnd = ExportarClip(Pack + "/Character/Jump-End/Jump-End.aseprite", dir, "Jump-End", false);
+        var animAtaque = ExportarClip(Pack + "/Character/Attack-01/Attack-01.aseprite", dir, "Attack-01", false);
 
         // PjController: parámetros Velocidad, VelocidadVertical y estaEnPiso
         var ctrl = AssetDatabase.LoadAssetAtPath<AnimatorController>(dir + "/PjController.controller")
                    ?? CrearPjController(dir, animIdle, animRun, animJump, animJumpEnd);
+        AgregarAtaque(ctrl, animAtaque);
 
         // Sprite Idle, por encima del fondo con Order in Layer 2
         var idle = PrimerSprite(animIdle);
@@ -402,6 +404,11 @@ public static class ConstructorJuego
         comprobador.transform.SetParent(go.transform, false);
         comprobador.transform.localPosition = new Vector3(b.center.x, b.min.y, 0);
 
+        // PuntoAtaque delante del personaje, a la altura de la espada
+        var punto = new GameObject("PuntoAtaque");
+        punto.transform.SetParent(go.transform, false);
+        punto.transform.localPosition = new Vector3(b.center.x + 0.22f, b.center.y, 0);
+
         // Audio Source para los efectos de sonido
         go.AddComponent<AudioSource>().playOnAwake = false;
 
@@ -413,6 +420,9 @@ public static class ConstructorJuego
         j.audioAbeja = Audio("Efectos/04_sack_open_2.wav");
         j.audioCaracol = Audio("Efectos/13_human_jump_land_1.wav");
         j.audioPuerquito = Audio("Efectos/14_human_death_spin.wav");
+        j.audioAtaque = Audio("Efectos/07_human_atk_sword_2.wav");
+        j.audioGolpe = Audio("Efectos/26_sword_hit_2.wav");
+        j.puntoAtaque = punto.transform;
 
         return GuardarPrefab(go, "Assets/Prefab/Jugador.prefab");
     }
@@ -516,6 +526,23 @@ public static class ConstructorJuego
 
     static readonly float[] PosCaracoles = { 13, 39, 66, 93, 120 };
     static readonly float[] PosPuerquitos = { 21, 47, 75, 113 };
+
+    // Estado Attack-01 que se activa desde cualquier estado con el trigger Atacar
+    static void AgregarAtaque(AnimatorController ctrl, AnimationClip clip)
+    {
+        if (ctrl.parameters.Any(p => p.name == "Atacar")) return;
+        ctrl.AddParameter("Atacar", AnimatorControllerParameterType.Trigger);
+        var sm = ctrl.layers[0].stateMachine;
+        var sAtaque = sm.AddState("Attack-01", new Vector3(0, 240));
+        sAtaque.motion = clip;
+        var entrar = sm.AddAnyStateTransition(sAtaque);
+        entrar.hasExitTime = false; entrar.duration = 0; entrar.canTransitionToSelf = false;
+        entrar.AddCondition(AnimatorConditionMode.If, 0, "Atacar");
+        var salir = sAtaque.AddTransition(sm.defaultState);
+        salir.hasExitTime = true; salir.exitTime = 1f; salir.duration = 0;
+        EditorUtility.SetDirty(ctrl);
+        AssetDatabase.SaveAssets();
+    }
 
     // Tramos de piso (x inicial, x final, fila superior, profundidad) en casillas de 16 px
     static readonly (int, int, int, int)[] Nivel =

@@ -10,8 +10,9 @@ Videojuego 2D de plataformas hecho en Unity 6.3 (Universal 2D) para la materia d
 |---|---|
 | Moverse | A / D o flechas |
 | Saltar | Espacio |
+| Atacar | Clic izquierdo o Ctrl |
 
-Recolecta las abejas, pisa a los caracoles y evita a los puerquitos (y no te caigas al vacío).
+Recolecta las abejas, pisa o golpea a los caracoles y elimina a los puerquitos con la espada antes de tocarlos (y no te caigas al vacío).
 
 ## Recursos usados
 

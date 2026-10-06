@@ -20,6 +20,10 @@ public class Jugador : MonoBehaviour
     public AudioClip audioPuerquito;
     public AudioClip audioCaracol;
     public AudioClip audioAbeja;
+    public AudioClip audioAtaque;
+    public AudioClip audioGolpe;
+    public Transform puntoAtaque;
+    public float radioAtaque = 0.25f;
 
     void Start()
     {
@@ -37,6 +41,8 @@ public class Jugador : MonoBehaviour
         }
         if (Input.GetButtonDown("Jump") && esPiso)
             rb.linearVelocity = new Vector2(rb.linearVelocity.x, alturaSalto);
+        if (Input.GetButtonDown("Fire1") && !enRetroceso)
+            Atacar();
         animator.SetFloat("Velocidad", Mathf.Abs(movimiento));
         animator.SetFloat("VelocidadVertical", rb.linearVelocity.y);
         animator.SetBool("estaEnPiso", esPiso);
@@ -77,6 +83,30 @@ public class Jugador : MonoBehaviour
             collision.GetComponent<Animator>().enabled = true;
             Destroy(collision.gameObject, 0.4f);
             Invoke(nameof(QuitarRetroceso), 0.2f);
+        }
+    }
+
+    // Golpe de espada: elimina a los puerquitos y caracoles que estén enfrente
+    void Atacar()
+    {
+        animator.SetTrigger("Atacar");
+        audioSource.PlayOneShot(audioAtaque);
+        Collider2D[] golpeados = Physics2D.OverlapCircleAll(puntoAtaque.position, radioAtaque);
+        foreach (Collider2D golpe in golpeados)
+        {
+            if (golpe.CompareTag("puerquito") && golpe.name != "Vacio")
+            {
+                audioSource.PlayOneShot(audioGolpe);
+                Destroy(golpe.gameObject);
+            }
+            else if (golpe.CompareTag("caracol"))
+            {
+                audioSource.PlayOneShot(audioGolpe);
+                foreach (Collider2D col in golpe.GetComponents<Collider2D>())
+                    col.enabled = false;
+                golpe.GetComponent<Animator>().enabled = true;
+                Destroy(golpe.gameObject, 0.4f);
+            }
         }
     }
 
