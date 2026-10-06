@@ -91,6 +91,7 @@ public static class ConstructorJuego
         Carpeta("Assets/Animaciones");
         CrearLayer("Pisito");
         CrearTag("abejita");
+        CrearTag("puerquito");
 
         // Physics Material 2D "solido" con fricción 0
         var solido = new PhysicsMaterial2D("solido") { friction = 0f, bounciness = 0f };
@@ -170,6 +171,19 @@ public static class ConstructorJuego
         var abejas = new GameObject("Abejas");
         foreach (var (x, y) in PosAbejas)
             Colocar(prefAbeja, abejas.transform, x * Celda, SueloY + y);
+
+        // Puerquitos que reinician el nivel
+        var prefPuerquito = CrearPuerquito();
+        var mobs = new GameObject("Mobs");
+        foreach (var x in PosPuerquitos)
+            Colocar(prefPuerquito, mobs.transform, x * Celda, SueloY);
+
+        // Zona invisible bajo el nivel: si el personaje cae, también reinicia (tag puerquito)
+        var vacio = new GameObject("Vacio") { tag = "puerquito" };
+        vacio.transform.position = new Vector3(55 * Celda, -2.5f, 0);
+        var bv = vacio.AddComponent<BoxCollider2D>();
+        bv.isTrigger = true;
+        bv.size = new Vector2(160 * Celda, 0.5f);
 
         // UI: Marcador con la imagen de la abeja y el texto con la cantidad
         var canvas = NuevoCanvas();
@@ -283,6 +297,19 @@ public static class ConstructorJuego
         return GuardarPrefab(go, "Assets/Prefab/Abeja.prefab");
     }
 
+    static GameObject CrearPuerquito()
+    {
+        var clip = ExportarClip(Pack + "/Mob/Boar/Idle/Idle.aseprite", "Assets/Animaciones/Puerquito", "Idle", true);
+        var go = Mob("Puerquito", clip, "Assets/Animaciones/Puerquito/Puerquito.controller", "puerquito");
+        var cap = go.AddComponent<CapsuleCollider2D>();
+        cap.isTrigger = true;
+        cap.direction = CapsuleDirection2D.Horizontal;
+        var b = go.GetComponent<SpriteRenderer>().sprite.bounds;
+        cap.size = new Vector2(b.size.x - 0.06f, b.size.y - 0.05f);
+        cap.offset = b.center;
+        return GuardarPrefab(go, "Assets/Prefab/Puerquito.prefab");
+    }
+
     static GameObject Mob(string nombre, AnimationClip clip, string rutaCtrl, string tag)
     {
         var ctrl = AssetDatabase.LoadAssetAtPath<AnimatorController>(rutaCtrl)
@@ -300,6 +327,8 @@ public static class ConstructorJuego
         (-3, 0), (8, 0.6f), (18, 0), (35, 0.6f), (43, 0.95f), (52.5f, 0.45f), (62.5f, 0.6f),
         (70, 1.1f), (90, 0), (98, 0.6f), (107, 0.95f), (118, 0),
     };
+
+    static readonly float[] PosPuerquitos = { 21, 47, 75, 113 };
 
     // Tramos de piso (x inicial, x final, fila superior, profundidad) en casillas de 16 px
     static readonly (int, int, int, int)[] Nivel =

@@ -29,7 +29,7 @@ Recolecta las abejas, pisa a los caracoles y evita a los puerquitos (y no te cai
 - [x] 6. Animaciones del personaje (Idle, Run, Jump, Jump-End) con PjController
 - [x] 7. Cámara que sigue al personaje
 - [x] 8. Abejas para recolectar y contador en pantalla (TextMeshPro)
-- [ ] 9. Puerquitos y zona de caída que reinician el nivel
+- [x] 9. Puerquitos y zona de caída que reinician el nivel
 - [ ] 10. Caracoles que se pisan con rebote
 - [ ] 11. Música de fondo y efectos de sonido
 - [ ] 12. Menú principal con botones Jugar, Opciones y Salir
