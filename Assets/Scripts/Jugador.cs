@@ -62,7 +62,7 @@ public class Jugador : MonoBehaviour
             // Se espera medio segundo para que se alcance a escuchar el sonido
             enRetroceso = true;
             rb.linearVelocity = Vector2.zero;
-            Invoke(nameof(Reiniciar), 0.5f);
+            Invoke(nameof(VolverAlMenu), 0.5f);
         }
         if (collision.transform.CompareTag("caracol"))
         {
@@ -85,8 +85,9 @@ public class Jugador : MonoBehaviour
         enRetroceso = false;
     }
 
-    void Reiniciar()
+    // Al morir se vuelve al menú principal (escena 0 de la Scene List)
+    void VolverAlMenu()
     {
-        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+        SceneManager.LoadScene(0);
     }
 }
